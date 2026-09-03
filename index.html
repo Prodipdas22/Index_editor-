@@ -6,6 +6,7 @@
     <title>HTML Code Runner</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
     <header class="toolbar">
@@ -13,21 +14,22 @@
             <i class="fa-solid fa-code"></i> HTML Code Runner
         </div>
         <div class="actions">
-            <button id="btn-run" class="btn btn-primary"><i class="fa-solid fa-play"></i> Run</button>
-            <button id="btn-save" class="btn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+            <button id="btn-run" class="btn btn-primary" title="Execute Code"><i class="fa-solid fa-play"></i> Run</button>
+            <button id="btn-save" class="btn" title="Save code to browser memory"><i class="fa-solid fa-floppy-disk"></i> Save</button>
             
-            <label for="file-upload" class="btn custom-file-upload">
+            <label for="file-upload" class="btn custom-file-upload" title="Open an HTML file">
                 <i class="fa-solid fa-folder-open"></i> Open
             </label>
             <input id="file-upload" type="file" accept=".html"/>
             
-            <button id="btn-download" class="btn"><i class="fa-solid fa-download"></i> Download</button>
-            <button id="btn-reset" class="btn btn-danger"><i class="fa-solid fa-rotate-left"></i> Reset</button>
-            <button id="btn-copy" class="btn"><i class="fa-solid fa-copy"></i> Copy</button>
+            <button id="btn-download" class="btn" title="Download as .html file"><i class="fa-solid fa-download"></i> Download</button>
+            <button id="btn-screenshot" class="btn" title="Capture a macOS-style screenshot of preview"><i class="fa-solid fa-camera"></i> Capture UI</button>
+            <button id="btn-copy" class="btn" title="Copy all code to clipboard"><i class="fa-solid fa-copy"></i> Copy</button>
+            <button id="btn-reset" class="btn btn-danger" title="Clear all code"><i class="fa-solid fa-rotate-left"></i> Reset</button>
         </div>
         <div class="controls">
-            <button id="btn-theme" class="btn icon-btn"><i class="fa-solid fa-sun"></i></button>
-            <button id="btn-full" class="btn icon-btn"><i class="fa-solid fa-expand"></i></button>
+            <button id="btn-theme" class="btn icon-btn" title="Toggle Dark/Light Mode"><i class="fa-solid fa-sun"></i></button>
+            <button id="btn-full" class="btn icon-btn" title="Fullscreen Preview"><i class="fa-solid fa-expand"></i></button>
         </div>
     </header>
 
@@ -48,10 +50,22 @@
         </div>
 
         <div class="output-container">
-            <div class="panel preview-panel">
-                <div class="panel-header">Live Preview</div>
-                <iframe id="preview-frame" sandbox="allow-scripts allow-modals"></iframe>
+            <div class="panel" id="preview-outer-container">
+                <div id="macos-preview" class="macos-window">
+                    <div class="macos-header">
+                        <div class="macos-dots">
+                            <span class="dot red"></span>
+                            <span class="dot yellow"></span>
+                            <span class="dot green"></span>
+                        </div>
+                        <div class="macos-title">localhost: preview</div>
+                    </div>
+                    <div class="macos-body">
+                        <iframe id="preview-frame" sandbox="allow-scripts allow-modals"></iframe>
+                    </div>
+                </div>
             </div>
+
             <div class="panel console-panel">
                 <div class="panel-header">Console <button id="btn-clear-console" class="btn-small">Clear</button></div>
                 <div id="console-output"></div>
