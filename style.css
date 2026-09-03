@@ -156,3 +156,72 @@ iframe {
     .editor-container { grid-template-rows: repeat(3, 250px); }
     .output-container { grid-template-rows: 400px 200px; }
 }
+
+/* --- macOS Window Styles --- */
+#preview-outer-container {
+    background-color: var(--bg-panel);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px; /* Adds space around the window for the screenshot shadow */
+    overflow: hidden;
+}
+
+.macos-window {
+    width: 100%;
+    height: 100%;
+    background: #ffffff; /* Mac window bodies are usually light */
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3); /* The signature macOS drop shadow */
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(0,0,0,0.2);
+    overflow: hidden;
+}
+
+.macos-header {
+    background: #e6e6e6;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border-bottom: 1px solid #ccc;
+    flex-shrink: 0;
+}
+
+.macos-dots {
+    position: absolute;
+    left: 12px;
+    display: flex;
+    gap: 7px;
+}
+
+.dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.dot.red { background: #ff5f56; border: 1px solid #e0443e; }
+.dot.yellow { background: #ffbd2e; border: 1px solid #dea123; }
+.dot.green { background: #27c93f; border: 1px solid #1aab29; }
+
+.macos-title {
+    font-size: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-weight: 500;
+    color: #4d4d4d;
+}
+
+.macos-body {
+    flex-grow: 1;
+    display: flex;
+    background: white; /* Ensure preview background is strictly white for screenshots */
+}
+
+/* Tooltip Hover Enhancement (Optional friendly UX tweak) */
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
