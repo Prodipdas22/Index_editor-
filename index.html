@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Code Runner</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <header class="toolbar">
+        <div class="brand">
+            <i class="fa-solid fa-code"></i> HTML Code Runner
+        </div>
+        <div class="actions">
+            <button id="btn-run" class="btn btn-primary"><i class="fa-solid fa-play"></i> Run</button>
+            <button id="btn-save" class="btn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+            
+            <label for="file-upload" class="btn custom-file-upload">
+                <i class="fa-solid fa-folder-open"></i> Open
+            </label>
+            <input id="file-upload" type="file" accept=".html"/>
+            
+            <button id="btn-download" class="btn"><i class="fa-solid fa-download"></i> Download</button>
+            <button id="btn-reset" class="btn btn-danger"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+            <button id="btn-copy" class="btn"><i class="fa-solid fa-copy"></i> Copy</button>
+        </div>
+        <div class="controls">
+            <button id="btn-theme" class="btn icon-btn"><i class="fa-solid fa-sun"></i></button>
+            <button id="btn-full" class="btn icon-btn"><i class="fa-solid fa-expand"></i></button>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <div class="editor-container">
+            <div class="panel html-panel">
+                <div class="panel-header"><span class="lang-color html-color"></span> HTML</div>
+                <textarea id="html-code" spellcheck="false" placeholder=""></textarea>
+            </div>
+            <div class="panel css-panel">
+                <div class="panel-header"><span class="lang-color css-color"></span> CSS</div>
+                <textarea id="css-code" spellcheck="false" placeholder="/* Write CSS here */"></textarea>
+            </div>
+            <div class="panel js-panel">
+                <div class="panel-header"><span class="lang-color js-color"></span> JavaScript</div>
+                <textarea id="js-code" spellcheck="false" placeholder="// Write JavaScript here"></textarea>
+            </div>
+        </div>
+
+        <div class="output-container">
+            <div class="panel preview-panel">
+                <div class="panel-header">Live Preview</div>
+                <iframe id="preview-frame" sandbox="allow-scripts allow-modals"></iframe>
+            </div>
+            <div class="panel console-panel">
+                <div class="panel-header">Console <button id="btn-clear-console" class="btn-small">Clear</button></div>
+                <div id="console-output"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
