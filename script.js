@@ -160,3 +160,36 @@ document.getElementById('btn-full').addEventListener('click', () => {
         previewFrame.webkitRequestFullscreen();
     }
 });
+
+// --- macOS Screenshot Capture Logic ---
+
+document.getElementById('btn-screenshot').addEventListener('click', () => {
+    const targetElement = document.getElementById('macos-preview');
+    
+    // Temporarily hide the outer container's overflow clipping 
+    // to ensure shadows aren't cut off in the screenshot
+    const originalShadow = targetElement.style.boxShadow;
+    
+    // We use html2canvas to take a picture of the DOM element
+    html2canvas(targetElement, {
+        backgroundColor: null, // Keeps background transparent so rounded corners look right
+        scale: 2,              // Multiplies resolution by 2 for a crisp, high-quality Retina look
+        useCORS: true          // Helps prevent cross-origin issues if you load external images
+    }).then(canvas => {
+        // Convert the canvas drawing into a downloadable PNG image
+        const imageURL = canvas.toDataURL('image/png');
+        
+        // Create a temporary link element to trigger the download
+        const downloadLink = document.createElement('a');
+        downloadLink.href = imageURL;
+        downloadLink.download = 'mac-preview-shot.png';
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        
+        // Clean up
+        document.body.removeChild(downloadLink);
+    }).catch(err => {
+        console.error("Failed to capture screenshot: ", err);
+        alert("Screenshot failed. Check console for details.");
+    });
+});
