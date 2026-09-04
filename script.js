@@ -8,9 +8,18 @@ const consoleOutput = document.getElementById('console-output');
 // --- Core Functionality ---
 
 // Run & Live Preview
+// --- Updated Run & Live Preview (with Dark/Light mode injection) ---
 function runCode() {
     const html = htmlCode.value;
-    const css = `<style>${cssCode.value}</style>`;
+    
+    // Check current theme and create matching base CSS for the iframe
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const themeBaseCSS = currentTheme === 'dark' 
+        ? `body { background-color: #1e1e1e; color: #d4d4d4; font-family: sans-serif; margin: 0; padding: 10px; }`
+        : `body { background-color: #ffffff; color: #333333; font-family: sans-serif; margin: 0; padding: 10px; }`;
+    
+    // Combine base theme with user's CSS
+    const css = `<style>${themeBaseCSS}\n${cssCode.value}</style>`;
     
     // Inject a script to hijack console.log inside the iframe
     const js = `
@@ -40,10 +49,57 @@ function runCode() {
         <\/script>
     `;
 
-    // Construct the final document and inject it via srcdoc
     const documentContent = html + css + js;
     previewFrame.srcdoc = documentContent;
 }
+
+// --- Updated Dark/Light Theme Toggle ---
+document.getElementById('btn-theme').addEventListener('click', (e) => {
+    const htmlEl = document.documentElement;
+    const currentTheme = htmlEl.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    htmlEl.setAttribute('data-theme', newTheme);
+    
+    // Toggle Icon
+    const icon = e.currentTarget.querySelector('i');
+    if (newTheme === 'light') {
+        icon.classList.remove('fa-sun');
+        icon.classList.add('fa-moon');
+    } else {
+        icon.classList.remove('fa-moon');
+        icon.classList.add('fa-sun');
+    }
+    
+    // Re-run code immediately to apply the new background theme to the preview window
+    runCode(); 
+});
+
+// --- NEW: Panel Minimize/Maximize Logic ---
+const editorLayout = document.getElementById('editor-layout');
+const panelStates = { html: true, css: true, js: true }; // true = open, false = minimized
+
+document.querySelectorAll('.btn-minimize').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const target = btn.getAttribute('data-panel');
+        const panelEl = document.getElementById(`panel-${target}`);
+        
+        // Toggle State
+        panelStates[target] = !panelStates[target];
+        
+        // Toggle visual classes
+        panelEl.classList.toggle('minimized-panel');
+        btn.classList.toggle('rotated');
+        
+        // Update CSS Grid Layout
+        // If a panel is minimized, set its row height to 34px (header height). Otherwise, 1fr.
+        const htmlRow = panelStates.html ? '1fr' : '34px';
+        const cssRow = panelStates.css ? '1fr' : '34px';
+        const jsRow = panelStates.js ? '1fr' : '34px';
+        
+        editorLayout.style.gridTemplateRows = `${htmlRow} ${cssRow} ${jsRow}`;
+    });
+});
+
 
 // Listen for Console Messages from Iframe
 window.addEventListener('message', (e) => {
