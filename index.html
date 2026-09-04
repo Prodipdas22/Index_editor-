@@ -34,17 +34,27 @@
     </header>
 
     <main class="workspace">
-        <div class="editor-container">
-            <div class="panel html-panel">
-                <div class="panel-header"><span class="lang-color html-color"></span> HTML</div>
+        <main class="workspace">
+        <div class="editor-container" id="editor-layout">
+            <div class="panel html-panel" id="panel-html">
+                <div class="panel-header">
+                    <div><span class="lang-color html-color"></span> HTML</div>
+                    <button class="btn-small btn-minimize" data-panel="html" title="Minimize/Maximize HTML"><i class="fa-solid fa-chevron-down"></i></button>
+                </div>
                 <textarea id="html-code" spellcheck="false" placeholder=""></textarea>
             </div>
-            <div class="panel css-panel">
-                <div class="panel-header"><span class="lang-color css-color"></span> CSS</div>
+            <div class="panel css-panel" id="panel-css">
+                <div class="panel-header">
+                    <div><span class="lang-color css-color"></span> CSS</div>
+                    <button class="btn-small btn-minimize" data-panel="css" title="Minimize/Maximize CSS"><i class="fa-solid fa-chevron-down"></i></button>
+                </div>
                 <textarea id="css-code" spellcheck="false" placeholder="/* Write CSS here */"></textarea>
             </div>
-            <div class="panel js-panel">
-                <div class="panel-header"><span class="lang-color js-color"></span> JavaScript</div>
+            <div class="panel js-panel" id="panel-js">
+                <div class="panel-header">
+                    <div><span class="lang-color js-color"></span> JavaScript</div>
+                    <button class="btn-small btn-minimize" data-panel="js" title="Minimize/Maximize JS"><i class="fa-solid fa-chevron-down"></i></button>
+                </div>
                 <textarea id="js-code" spellcheck="false" placeholder="// Write JavaScript here"></textarea>
             </div>
         </div>
@@ -72,6 +82,7 @@
             </div>
         </div>
     </main>
+
 
     <script src="script.js"></script>
 </body>
