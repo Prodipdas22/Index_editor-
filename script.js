@@ -12,9 +12,9 @@ function runCode() {
     // Inject matching dark/light background based on app theme
     const currentTheme = document.documentElement.getAttribute('data-theme');
     const themeBaseCSS = currentTheme === 'dark' 
-        ? `body { background-color: #1e1e1e; color: #d4d4d4; font-family: sans-serif; margin: 0; padding: 10px; }`
-        : `body { background-color: #ffffff; color: #333333; font-family: sans-serif; margin: 0; padding: 10px; }`;
-    
+        ? `body { background-color: #1e1e1e; color: #d4d4d4; font-family: sans-serif; margin: 0; padding: 10px; min-height: 100vh; box-sizing: border-box; }`
+        : `body { background-color: #ffffff; color: #333333; font-family: sans-serif; margin: 0; padding: 10px; min-height: 100vh; box-sizing: border-box; }`;
+
     const css = `<style>${themeBaseCSS}\n${cssCode.value}</style>`;
     
     // Inject script to hijack console.log inside the iframe
@@ -179,50 +179,92 @@ document.querySelectorAll('.btn-minimize').forEach(btn => {
         editorLayout.style.gridTemplateRows = `${htmlRow} ${cssRow} ${jsRow}`;
     });
 });
+// --- Helper Function: Safely extract iframe visual content ---
+async function getPreviewImage() {
+    const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+    const originalOverflow = iframeDoc.body.style.overflow;
+    iframeDoc.body.style.overflow = 'hidden'; // Hide scrollbars for the shot
+    
+    try {
+        const canvas = await html2canvas(iframeDoc.body, {
+            backgroundColor: document.documentElement.getAttribute('data-theme') === 'dark' ? '#1e1e1e' : '#ffffff',
+            scale: 2,
+            useCORS: true
+        });
+        return canvas.toDataURL('image/png');
+    } finally {
+        iframeDoc.body.style.overflow = originalOverflow; // Restore scrollbars
+    }
+}
 
-// --- macOS Screenshot Capture Logic ---
-document.getElementById('btn-screenshot').addEventListener('click', () => {
+// --- macOS Screenshot Capture Logic (FIXED) ---
+document.getElementById('btn-screenshot').addEventListener('click', async () => {
     const targetElement = document.getElementById('macos-preview');
-    html2canvas(targetElement, { backgroundColor: null, scale: 2, useCORS: true }).then(canvas => {
-        const imageURL = canvas.toDataURL('image/png');
+    const macBody = document.querySelector('.macos-body');
+    const btn = document.getElementById('btn-screenshot');
+    const originalBtnText = btn.innerHTML;
+    
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Capturing...';
+
+    try {
+        // 1. Get the image of the code output
+        const iframeImgSrc = await getPreviewImage();
+        
+        // 2. Temporarily swap the iframe with an image element
+        const img = document.createElement('img');
+        img.src = iframeImgSrc;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        
+        previewFrame.style.display = 'none';
+        macBody.appendChild(img);
+
+        // 3. Take a picture of the whole macOS window container
+        const canvas = await html2canvas(targetElement, { backgroundColor: null, scale: 2, useCORS: true });
+        
+        // 4. Trigger download
         const downloadLink = document.createElement('a');
-        downloadLink.href = imageURL;
+        downloadLink.href = canvas.toDataURL('image/png');
         downloadLink.download = 'mac-preview-shot.png';
         document.body.appendChild(downloadLink);
         downloadLink.click();
         document.body.removeChild(downloadLink);
-    }).catch(err => {
-        console.error("Failed to capture screenshot: ", err);
-        alert("Screenshot failed. Check console for details.");
-    });
+
+        // 5. Clean up and restore the live preview
+        macBody.removeChild(img);
+        previewFrame.style.display = 'block';
+
+    } catch (err) {
+        console.error("Screenshot failed: ", err);
+        alert("Screenshot failed. Check console.");
+    } finally {
+        btn.innerHTML = originalBtnText;
+    }
 });
 
-// --- Assignment PDF Generation Logic ---
+// --- Assignment PDF Generation Logic (FIXED) ---
 document.getElementById('btn-pdf').addEventListener('click', async () => {
     const titleText = document.getElementById('exp-title').value || 'Experiment 01';
     const objText = document.getElementById('exp-objective').value || 'To create a basic HTML document.';
     
-    // 1. Populate text fields
     document.getElementById('pdf-render-title').textContent = titleText;
     document.getElementById('pdf-render-obj').textContent = objText;
     
-    // 2. Combine and populate code
     let combinedCode = htmlCode.value;
     if (cssCode.value.trim()) combinedCode += `\n<style>\n${cssCode.value}\n</style>`;
     if (jsCode.value.trim()) combinedCode += `\n<script>\n${jsCode.value}\n<\/script>`;
     document.getElementById('pdf-render-code').textContent = combinedCode;
 
-    // 3. Capture the output preview as an image
-    const previewElement = document.getElementById('macos-preview');
     const pdfBtn = document.getElementById('btn-pdf');
     const originalText = pdfBtn.innerHTML;
     pdfBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
     
     try {
-        const canvas = await html2canvas(previewElement, { scale: 2, useCORS: true });
-        document.getElementById('pdf-render-output-img').src = canvas.toDataURL('image/png');
+        // Fix: Use the new helper to get the iframe content image
+        const iframeImgSrc = await getPreviewImage();
+        document.getElementById('pdf-render-output-img').src = iframeImgSrc;
 
-        // 4. Generate the PDF
         const element = document.getElementById('pdf-export-wrapper');
         const opt = {
             margin:       [10, 10, 15, 10], 
@@ -233,13 +275,11 @@ document.getElementById('btn-pdf').addEventListener('click', async () => {
             pagebreak:    { mode: 'avoid-all' }
         };
 
-        // Make visible for render
         element.style.left = '0';
         element.style.zIndex = '-1'; 
         
         await html2pdf().set(opt).from(element).save();
         
-        // Hide again
         element.style.left = '-9999px';
         
     } catch (err) {
@@ -249,3 +289,5 @@ document.getElementById('btn-pdf').addEventListener('click', async () => {
         pdfBtn.innerHTML = originalText;
     }
 });
+
+        
