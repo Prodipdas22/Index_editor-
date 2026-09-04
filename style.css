@@ -29,7 +29,7 @@ body {
     transition: background 0.3s, color 0.3s;
 }
 
-/* Toolbar */
+/* --- Toolbar --- */
 .toolbar {
     display: flex;
     justify-content: space-between;
@@ -56,7 +56,11 @@ body {
     transition: 0.2s;
 }
 
-.btn:hover { background-color: var(--border-color); }
+.btn:hover {
+    background-color: var(--border-color);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
 .btn-primary { background-color: #2ea043; color: white; border: none; }
 .btn-primary:hover { background-color: #3fb950; }
 .btn-danger { background-color: #da3633; color: white; border: none; }
@@ -66,11 +70,30 @@ body {
 input[type="file"] { display: none; }
 .custom-file-upload { cursor: pointer; }
 
-/* Workspace Layout */
+/* --- Assignment Input Bar --- */
+.assignment-bar {
+    display: flex;
+    gap: 10px;
+    padding: 10px 20px;
+    background-color: var(--bg-panel);
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 0;
+}
+.assignment-bar input {
+    flex: 1;
+    padding: 8px;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-family: inherit;
+}
+
+/* --- Workspace Layout --- */
 .workspace {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    height: calc(100vh - 55px);
+    height: calc(100vh - 100px); /* adjusted for toolbar + assignment bar */
     gap: 5px;
     padding: 5px;
 }
@@ -79,6 +102,7 @@ input[type="file"] { display: none; }
     display: grid;
     grid-template-rows: 1fr 1fr 1fr;
     gap: 5px;
+    transition: 0.3s ease;
 }
 
 .output-container {
@@ -134,9 +158,9 @@ iframe {
     width: 100%;
     height: 100%;
     border: none;
-    background-color: white; /* Preview usually needs a white canvas */
 }
 
+/* --- Console --- */
 #console-output {
     padding: 10px;
     font-family: 'Courier New', Courier, monospace;
@@ -150,29 +174,21 @@ iframe {
 
 .btn-small { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); cursor: pointer; padding: 2px 5px; border-radius: 3px;}
 
-/* Mobile Responsive */
-@media (max-width: 900px) {
-    .workspace { grid-template-columns: 1fr; overflow-y: auto; }
-    .editor-container { grid-template-rows: repeat(3, 250px); }
-    .output-container { grid-template-rows: 400px 200px; }
-}
-
-/* --- macOS Window Styles --- */
+/* --- macOS Window Styles & Minimization --- */
 #preview-outer-container {
     background-color: var(--bg-panel);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px; /* Adds space around the window for the screenshot shadow */
+    padding: 20px;
     overflow: hidden;
 }
 
-/* Update these macOS window styles */
 .macos-window {
     width: 100%;
     max-width: 100%;
     max-height: 100%;
-    aspect-ratio: 16 / 10; /* Forces the exact 16:10 aspect ratio */
+    aspect-ratio: 16 / 10;
     background: var(--bg-panel); 
     border-radius: 10px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
@@ -180,7 +196,7 @@ iframe {
     flex-direction: column;
     border: 1px solid rgba(0,0,0,0.2);
     overflow: hidden;
-    margin: auto; /* Keeps it centered if max-height kicks in */
+    margin: auto;
 }
 
 .macos-header {
@@ -201,12 +217,7 @@ iframe {
     gap: 7px;
 }
 
-.dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-}
-
+.dot { width: 12px; height: 12px; border-radius: 50%; }
 .dot.red { background: #ff5f56; border: 1px solid #e0443e; }
 .dot.yellow { background: #ffbd2e; border: 1px solid #dea123; }
 .dot.green { background: #27c93f; border: 1px solid #1aab29; }
@@ -221,21 +232,60 @@ iframe {
 .macos-body {
     flex-grow: 1;
     display: flex;
-    /* Removed background: white to allow JS to control the iframe background */
 }
 
-/* Tooltip Hover Enhancement (Optional friendly UX tweak) */
-.btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+.minimized-panel textarea { display: none; }
+.btn-minimize i { transition: transform 0.3s ease; }
+.btn-minimize.rotated i { transform: rotate(180deg); }
+
+/* --- Hidden PDF Template --- */
+#pdf-export-wrapper {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    width: 800px;
+    background: white;
+    color: black;
+    font-family: "Times New Roman", Times, serif;
+    padding: 40px;
+    box-sizing: border-box;
 }
-/* Add this to handle panel hiding when minimized */
-.minimized-panel textarea {
-    display: none;
+
+.pdf-text-block { font-size: 14px; margin-bottom: 15px; line-height: 1.5; }
+.pdf-label { font-weight: bold; font-size: 14px; margin: 20px 0 10px 0; }
+
+.pdf-code-container { background-color: #1e1e1e; border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
+.pdf-mac-header { background: #252526; padding: 8px 12px; display: flex; align-items: center; border-bottom: 1px solid #333; position: relative; }
+.pdf-mac-title { color: #858585; font-family: sans-serif; font-size: 12px; width: 100%; text-align: center; }
+
+#pdf-render-code {
+    color: #d4d4d4;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+    padding: 15px;
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
-.btn-minimize i {
-    transition: transform 0.3s ease;
+
+.pdf-output-container {
+    border: 2px solid black;
+    padding: 20px;
+    background: white;
+    min-height: 200px;
+    display: flex;
+    justify-content: center;
 }
-.btn-minimize.rotated i {
-    transform: rotate(180deg);
+
+.pdf-output-container img {
+    max-width: 100%;
+    border: 1px solid #ddd;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Mobile Responsive */
+@media (max-width: 900px) {
+    .workspace { grid-template-columns: 1fr; overflow-y: auto; }
+    .editor-container { grid-template-rows: repeat(3, 200px); }
+    .output-container { grid-template-rows: 350px 200px; }
 }
