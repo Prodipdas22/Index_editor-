@@ -14,7 +14,7 @@ function runCode() {
     const themeBaseCSS = currentTheme === 'dark' 
         ? `body { background-color: #1e1e1e; color: #d4d4d4; font-family: sans-serif; margin: 0; padding: 10px; min-height: 100vh; box-sizing: border-box; }`
         : `body { background-color: #ffffff; color: #333333; font-family: sans-serif; margin: 0; padding: 10px; min-height: 100vh; box-sizing: border-box; }`;
-
+    
     const css = `<style>${themeBaseCSS}\n${cssCode.value}</style>`;
     
     // Inject script to hijack console.log inside the iframe
@@ -104,6 +104,8 @@ document.getElementById('btn-copy').addEventListener('click', () => {
     const combined = `${htmlCode.value}\n<style>\n${cssCode.value}\n</style>\n<script>\n${jsCode.value}\n<\/script>`;
     navigator.clipboard.writeText(combined).then(() => {
         alert('All code copied to clipboard!');
+    }).catch(err => {
+        alert('Failed to copy to clipboard.');
     });
 });
 
@@ -179,25 +181,55 @@ document.querySelectorAll('.btn-minimize').forEach(btn => {
         editorLayout.style.gridTemplateRows = `${htmlRow} ${cssRow} ${jsRow}`;
     });
 });
+
 // --- Helper Function: Safely extract iframe visual content ---
 async function getPreviewImage() {
-    const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-    const originalOverflow = iframeDoc.body.style.overflow;
-    iframeDoc.body.style.overflow = 'hidden'; // Hide scrollbars for the shot
-    
     try {
+        // Attempt to access the iframe document
+        const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+        
+        if (!iframeDoc || !iframeDoc.body) {
+            throw new Error("Browser blocked access to iframe document.");
+        }
+
+        const originalOverflow = iframeDoc.body.style.overflow;
+        iframeDoc.body.style.overflow = 'hidden'; // Hide scrollbars for the shot
+        
         const canvas = await html2canvas(iframeDoc.body, {
             backgroundColor: document.documentElement.getAttribute('data-theme') === 'dark' ? '#1e1e1e' : '#ffffff',
             scale: 2,
-            useCORS: true
+            useCORS: true // Attempts to load external images safely
         });
-        return canvas.toDataURL('image/png');
-    } finally {
+        
         iframeDoc.body.style.overflow = originalOverflow; // Restore scrollbars
+        
+        // This line throws a DOMException if the canvas contains cross-origin images
+        return canvas.toDataURL('image/png'); 
+        
+    } catch (err) {
+        console.warn("Iframe capture blocked by browser security. Using fallback.", err);
+        
+        // Create a fallback image dynamically so the PDF doesn't crash
+        const fallbackCanvas = document.createElement('canvas');
+        fallbackCanvas.width = 800;
+        fallbackCanvas.height = 300;
+        const ctx = fallbackCanvas.getContext('2d');
+        
+        // Draw a warning box
+        ctx.fillStyle = '#252526';
+        ctx.fillRect(0, 0, fallbackCanvas.width, fallbackCanvas.height);
+        ctx.fillStyle = '#f85149';
+        ctx.font = '16px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚠️ Output capture blocked by mobile browser security.', 400, 140);
+        ctx.fillStyle = '#d4d4d4';
+        ctx.fillText('(Usually caused by external images in your HTML code)', 400, 170);
+        
+        return fallbackCanvas.toDataURL('image/png');
     }
 }
 
-// --- macOS Screenshot Capture Logic (FIXED) ---
+// --- macOS Screenshot Capture Logic ---
 document.getElementById('btn-screenshot').addEventListener('click', async () => {
     const targetElement = document.getElementById('macos-preview');
     const macBody = document.querySelector('.macos-body');
@@ -243,7 +275,7 @@ document.getElementById('btn-screenshot').addEventListener('click', async () => 
     }
 });
 
-// --- Assignment PDF Generation Logic (FIXED) ---
+// --- Assignment PDF Generation Logic ---
 document.getElementById('btn-pdf').addEventListener('click', async () => {
     const titleText = document.getElementById('exp-title').value || 'Experiment 01';
     const objText = document.getElementById('exp-objective').value || 'To create a basic HTML document.';
@@ -261,7 +293,6 @@ document.getElementById('btn-pdf').addEventListener('click', async () => {
     pdfBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
     
     try {
-        // Fix: Use the new helper to get the iframe content image
         const iframeImgSrc = await getPreviewImage();
         document.getElementById('pdf-render-output-img').src = iframeImgSrc;
 
@@ -289,5 +320,3 @@ document.getElementById('btn-pdf').addEventListener('click', async () => {
         pdfBtn.innerHTML = originalText;
     }
 });
-
-        
