@@ -1,117 +1,200 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTML Code Runner & Assignment Generator</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Index Editor V2 — College Lab Assignment Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    @media print {
+      body > *:not(#reportPrintArea) { display:none !important; }
+      #reportPrintArea { display:block !important; position:static !important; }
+    }
+  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header class="toolbar">
-        <div class="brand">
-            <i class="fa-solid fa-code"></i> Code Runner
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">&lt;/&gt;</div>
+        <div>
+          <strong>Index Editor <span>V2</span></strong>
+          <small>College Lab Assignment Builder</small>
         </div>
-        <div class="actions">
-            <button id="btn-run" class="btn btn-primary" title="Execute Code"><i class="fa-solid fa-play"></i> Run</button>
-            <button id="btn-pdf" class="btn btn-primary" title="Generate Assignment PDF" style="background-color: #6f42c1;"><i class="fa-solid fa-file-pdf"></i> Generate PDF</button>
-            <button id="btn-save" class="btn" title="Save code to browser memory"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-            
-            <label for="file-upload" class="btn custom-file-upload" title="Open an HTML file">
-                <i class="fa-solid fa-folder-open"></i> Open
-            </label>
-            <input id="file-upload" type="file" accept=".html"/>
-            
-            <button id="btn-download" class="btn" title="Download as .html file"><i class="fa-solid fa-download"></i> Download</button>
-            <button id="btn-screenshot" class="btn" title="Capture a macOS-style screenshot of preview"><i class="fa-solid fa-camera"></i> Capture UI</button>
-            <button id="btn-copy" class="btn" title="Copy all code to clipboard"><i class="fa-solid fa-copy"></i> Copy</button>
-            <button id="btn-reset" class="btn btn-danger" title="Clear all code"><i class="fa-solid fa-rotate-left"></i> Reset</button>
-        </div>
-        <div class="controls">
-            <button id="btn-theme" class="btn icon-btn" title="Toggle Dark/Light Mode"><i class="fa-solid fa-sun"></i></button>
-            <button id="btn-full" class="btn icon-btn" title="Fullscreen Preview"><i class="fa-solid fa-expand"></i></button>
-        </div>
+      </div>
+
+      <div class="top-actions">
+        <span id="saveStatus" class="save-status">● Saved</span>
+        <button id="saveBtn" class="btn">Save</button>
+        <button id="exportBtn" class="btn">Export</button>
+        <button id="importBtn" class="btn">Import</button>
+        <button id="downloadBtn" class="btn">HTML</button>
+        <button id="pdfBtn" class="btn primary">Report / PDF</button>
+        <button id="themeBtn" class="icon-btn" title="Toggle theme">☾</button>
+      </div>
     </header>
 
-    <div class="assignment-bar panel">
-        <input type="text" id="exp-title" placeholder="Experiment Title (e.g., Experiment 01: Create a HTML document...)">
-        <input type="text" id="exp-objective" placeholder="Objective: To create a basic HTML document...">
-    </div>
-
-    <main class="workspace">
-        <div class="editor-container" id="editor-layout">
-            <div class="panel html-panel" id="panel-html">
-                <div class="panel-header">
-                    <div><span class="lang-color html-color"></span> HTML</div>
-                    <button class="btn-small btn-minimize" data-panel="html" title="Minimize/Maximize HTML"><i class="fa-solid fa-chevron-down"></i></button>
-                </div>
-                <textarea id="html-code" spellcheck="false" placeholder=""></textarea>
-            </div>
-            <div class="panel css-panel" id="panel-css">
-                <div class="panel-header">
-                    <div><span class="lang-color css-color"></span> CSS</div>
-                    <button class="btn-small btn-minimize" data-panel="css" title="Minimize/Maximize CSS"><i class="fa-solid fa-chevron-down"></i></button>
-                </div>
-                <textarea id="css-code" spellcheck="false" placeholder="/* Write CSS here */"></textarea>
-            </div>
-            <div class="panel js-panel" id="panel-js">
-                <div class="panel-header">
-                    <div><span class="lang-color js-color"></span> JavaScript</div>
-                    <button class="btn-small btn-minimize" data-panel="js" title="Minimize/Maximize JS"><i class="fa-solid fa-chevron-down"></i></button>
-                </div>
-                <textarea id="js-code" spellcheck="false" placeholder="// Write JavaScript here"></textarea>
-            </div>
+    <main class="main-layout">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-head">
+          <div>
+            <h2>Experiments</h2>
+            <small id="experimentCount">1 experiment</small>
+          </div>
+          <button id="addExperimentBtn" class="square-btn" title="Add experiment">+</button>
         </div>
 
-        <div class="output-container">
-            <div class="panel" id="preview-outer-container">
-                <div id="macos-preview" class="macos-window">
-                    <div class="macos-header">
-                        <div class="macos-dots">
-                            <span class="dot red"></span>
-                            <span class="dot yellow"></span>
-                            <span class="dot green"></span>
-                        </div>
-                        <div class="macos-title">localhost: preview</div>
-                    </div>
-                    <div class="macos-body">
-                        <iframe id="preview-frame" sandbox="allow-scripts allow-modals allow-same-origin"></iframe>
-                    </div>
-                </div>
+        <div class="search-wrap">
+          <input id="experimentSearch" type="search" placeholder="Search experiments...">
+        </div>
+
+        <div id="experimentList" class="experiment-list"></div>
+
+        <div class="sidebar-bottom">
+          <button id="duplicateBtn" class="btn full">Duplicate</button>
+          <button id="deleteBtn" class="btn danger full">Delete</button>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <div class="experiment-bar">
+          <div class="details">
+            <div class="field compact">
+              <label>Experiment No.</label>
+              <input id="expNumber" type="text" placeholder="01">
+            </div>
+            <div class="field title-field">
+              <label>Experiment Title</label>
+              <input id="expTitle" type="text" placeholder="Enter experiment title">
+            </div>
+          </div>
+          <div class="workspace-actions">
+            <button id="previewDesktopBtn" class="btn active">Desktop</button>
+            <button id="previewMobileBtn" class="btn">Mobile</button>
+            <button id="runBtn" class="btn primary">▶ Run</button>
+          </div>
+        </div>
+
+        <div class="meta-grid">
+          <div class="field">
+            <label>Objective</label>
+            <textarea id="expObjective" rows="3" placeholder="Write the objective of this experiment..."></textarea>
+          </div>
+          <div class="field">
+            <label>Result</label>
+            <textarea id="expResult" rows="3" placeholder="Write the result / conclusion of this experiment..."></textarea>
+          </div>
+        </div>
+
+        <div class="workbench">
+          <section class="panel editor-panel">
+            <div class="panel-head">
+              <div class="tabs">
+                <button class="tab active" data-lang="html">HTML</button>
+                <button class="tab" data-lang="css">CSS</button>
+                <button class="tab" data-lang="js">JavaScript</button>
+              </div>
+              <div class="panel-tools">
+                <button id="findBtn" class="mini-btn">Find</button>
+                <button id="wrapBtn" class="mini-btn">Wrap</button>
+                <button id="copyCodeBtn" class="mini-btn">Copy</button>
+                <button id="formatBtn" class="mini-btn">Format</button>
+              </div>
             </div>
 
-            <div class="panel console-panel">
-                <div class="panel-header">Console <button id="btn-clear-console" class="btn-small">Clear</button></div>
-                <div id="console-output"></div>
+            <div class="editor-wrap">
+              <div id="lineNumbers" class="line-numbers">1</div>
+              <textarea id="codeEditor" spellcheck="false" autocomplete="off"></textarea>
             </div>
+
+            <div class="editor-footer">
+              <span id="languageLabel">HTML</span>
+              <span id="cursorInfo">Ln 1, Col 1</span>
+              <span>Ctrl/Cmd + Enter = Run</span>
+            </div>
+          </section>
+
+          <section class="panel preview-panel">
+            <div class="panel-head">
+              <div>
+                <strong>Live Preview</strong>
+                <small>Rendered experiment output</small>
+              </div>
+              <div class="panel-tools">
+                <button id="refreshPreviewBtn" class="mini-btn">↻ Refresh</button>
+                <button id="fullscreenBtn" class="mini-btn">⛶</button>
+              </div>
+            </div>
+
+            <div id="previewStage" class="preview-stage desktop-preview">
+              <div class="browser-window">
+                <div class="browser-bar">
+                  <div class="traffic"><i></i><i></i><i></i></div>
+                  <div class="address">index-editor://preview</div>
+                  <div></div>
+                </div>
+                <iframe id="previewFrame" title="Live preview" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"></iframe>
+              </div>
+            </div>
+          </section>
         </div>
+
+        <section class="panel console-panel">
+          <div class="panel-head">
+            <div>
+              <strong>Console</strong>
+              <small id="consoleStatus">Ready</small>
+            </div>
+            <button id="clearConsoleBtn" class="mini-btn">Clear</button>
+          </div>
+          <div id="consoleOutput" class="console-output">
+            <div class="console-line muted">Console ready.</div>
+          </div>
+        </section>
+      </section>
     </main>
 
-    <div id="pdf-export-wrapper">
-        <div id="pdf-content">
-            <div class="pdf-text-block"><strong>Experiment: </strong><span id="pdf-render-title"></span></div>
-            <div class="pdf-text-block"><strong>Objective: </strong><span id="pdf-render-obj"></span></div>
-            
-            <div class="pdf-label">Code:</div>
-            <div class="pdf-code-container">
-                <div class="pdf-mac-header">
-                    <div class="macos-dots">
-                        <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
-                    </div>
-                    <div class="pdf-mac-title"><i class="fa-brands fa-html5" style="color:#e34c26"></i> index.html</div>
-                </div>
-                <pre id="pdf-render-code"></pre>
-            </div>
+    <nav class="mobile-nav">
+      <button data-mobile="files">☰<span>Files</span></button>
+      <button data-mobile="code" class="active">⌨<span>Code</span></button>
+      <button data-mobile="preview">▣<span>Preview</span></button>
+      <button data-mobile="console">▤<span>Console</span></button>
+    </nav>
+  </div>
 
-            <div class="pdf-label">Output:</div>
-            <div class="pdf-output-container">
-                <img id="pdf-render-output-img" src="" alt="Output Preview">
-            </div>
-        </div>
+  <!-- REPORT PREVIEW -->
+  <div id="reportModal" class="modal hidden">
+    <div class="modal-topbar">
+      <div>
+        <strong>Lab Record Preview</strong>
+        <small>A4-ready • one report for all experiments</small>
+      </div>
+      <div class="modal-actions">
+        <button id="refreshReportBtn" class="btn">Refresh</button>
+        <button id="printPdfBtn" class="btn primary">Print / Save PDF</button>
+        <button id="closeReportBtn" class="btn">Close</button>
+      </div>
     </div>
+    <div id="reportScroll" class="report-scroll">
+      <div id="reportPages" class="report-pages"></div>
+    </div>
+  </div>
 
-    <script src="script.js"></script>
+  <!-- Print-only report container -->
+  <div id="reportPrintArea"></div>
+
+  <input id="projectImport" type="file" accept=".json" hidden>
+  <div id="findBar" class="find-bar hidden">
+    <input id="findInput" type="search" placeholder="Find in current code...">
+    <button id="findPrevBtn" class="mini-btn">↑</button>
+    <button id="findNextBtn" class="mini-btn">↓</button>
+    <button id="closeFindBtn" class="mini-btn">×</button>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
