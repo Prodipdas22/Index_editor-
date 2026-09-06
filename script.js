@@ -1,322 +1,2859 @@
-// --- DOM Elements ---
-const htmlCode = document.getElementById('html-code');
-const cssCode = document.getElementById('css-code');
-const jsCode = document.getElementById('js-code');
-const previewFrame = document.getElementById('preview-frame');
-const consoleOutput = document.getElementById('console-output');
+const STORAGE_KEY = "index-editor-v2-sprint2";
 
-// --- Run & Live Preview ---
-function runCode() {
-    const html = htmlCode.value;
-    
-    // Inject matching dark/light background based on app theme
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const themeBaseCSS = currentTheme === 'dark' 
-        ? `body { background-color: #1e1e1e; color: #d4d4d4; font-family: sans-serif; margin: 0; padding: 10px; min-height: 100vh; box-sizing: border-box; }`
-        : `body { background-color: #ffffff; color: #333333; font-family: sans-serif; margin: 0; padding: 10px; min-height: 100vh; box-sizing: border-box; }`;
-    
-    const css = `<style>${themeBaseCSS}\n${cssCode.value}</style>`;
-    
-    // Inject script to hijack console.log inside the iframe
-    const js = `
-        <script>
-            const originalLog = console.log;
-            const originalError = console.error;
-            
-            console.log = function(...args) {
-                window.parent.postMessage({ type: 'log', message: args.join(' ') }, '*');
-                originalLog.apply(console, args);
-            };
-            
-            console.error = function(...args) {
-                window.parent.postMessage({ type: 'error', message: args.join(' ') }, '*');
-                originalError.apply(console, args);
-            };
-            
-            window.onerror = function(msg, url, line) {
-                window.parent.postMessage({ type: 'error', message: msg + ' on line ' + line }, '*');
-            };
+const defaultExperiment = () => ({
+  id: uid(),
 
-            try {
-                ${jsCode.value}
-            } catch(e) {
-                console.error(e.toString());
-            }
-        <\/script>
-    `;
+  number: "01",
 
-    const documentContent = html + css + js;
-    previewFrame.srcdoc = documentContent;
+  title: "Create a simple HTML document",
+
+  objective:
+    "To create a basic HTML document using heading, paragraph and other HTML elements.",
+
+  result:
+    "The HTML document was created and displayed successfully.",
+
+  code: {
+
+    html:
+`<h1>Hello, World!</h1>
+<p>This is my first HTML experiment.</p>`,
+
+    css:
+`body {
+  font-family: Arial, sans-serif;
+  padding: 30px;
 }
 
-// --- Event Listeners ---
+h1 {
+  color: #2563eb;
+}`,
 
-// Listen for Console Messages from Iframe
-window.addEventListener('message', (e) => {
-    if (e.data && (e.data.type === 'log' || e.data.type === 'error')) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = e.data.type === 'error' ? 'console-msg console-err' : 'console-msg';
-        msgDiv.textContent = `> ${e.data.message}`;
-        consoleOutput.appendChild(msgDiv);
-        consoleOutput.scrollTop = consoleOutput.scrollHeight;
-    }
+    js:
+`console.log("Experiment 01 loaded successfully");`
+  }
 });
 
-// Clear Console
-document.getElementById('btn-clear-console').addEventListener('click', () => {
-    consoleOutput.innerHTML = '';
-});
 
-// Run Button
-document.getElementById('btn-run').addEventListener('click', () => {
-    consoleOutput.innerHTML = ''; 
-    runCode();
-});
+let state = {
 
-// Save Code (LocalStorage)
-document.getElementById('btn-save').addEventListener('click', () => {
-    localStorage.setItem('saved-html', htmlCode.value);
-    localStorage.setItem('saved-css', cssCode.value);
-    localStorage.setItem('saved-js', jsCode.value);
-    alert('Code saved locally!');
-});
+  experiments: [
+    defaultExperiment()
+  ],
 
-// Load Saved Code on Init
-window.onload = () => {
-    if (localStorage.getItem('saved-html') !== null) htmlCode.value = localStorage.getItem('saved-html');
-    if (localStorage.getItem('saved-css') !== null) cssCode.value = localStorage.getItem('saved-css');
-    if (localStorage.getItem('saved-js') !== null) jsCode.value = localStorage.getItem('saved-js');
-    runCode();
+  activeId: null,
+
+  language: "html",
+
+  theme: "dark",
+
+  previewMode: "desktop"
 };
 
-// Reset Button
-document.getElementById('btn-reset').addEventListener('click', () => {
-    if(confirm('Are you sure you want to reset all code?')) {
-        htmlCode.value = ''; cssCode.value = ''; jsCode.value = '';
-        localStorage.clear();
-        consoleOutput.innerHTML = '';
-        runCode();
-    }
-});
 
-// Copy Code 
-document.getElementById('btn-copy').addEventListener('click', () => {
-    const combined = `${htmlCode.value}\n<style>\n${cssCode.value}\n</style>\n<script>\n${jsCode.value}\n<\/script>`;
-    navigator.clipboard.writeText(combined).then(() => {
-        alert('All code copied to clipboard!');
-    }).catch(err => {
-        alert('Failed to copy to clipboard.');
-    });
-});
+let outputCaptures = new Map();
 
-// Download .html File
-document.getElementById('btn-download').addEventListener('click', () => {
-    const combined = `<!DOCTYPE html>\n<html>\n<head>\n<style>\n${cssCode.value}\n</style>\n</head>\n<body>\n${htmlCode.value}\n<script>\n${jsCode.value}\n<\/script>\n</body>\n</html>`;
-    const blob = new Blob([combined], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'project.html';
-    a.click();
-    URL.revokeObjectURL(url);
-});
 
-// Open/Upload .html File
-document.getElementById('file-upload').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        htmlCode.value = e.target.result; 
-        cssCode.value = ''; 
-        jsCode.value = '';
-        alert('File loaded into HTML editor. Please split CSS/JS manually if needed.');
-        runCode();
-    };
-    reader.readAsText(file);
-});
+const $ = id =>
+  document.getElementById(id);
 
-// Dark/Light Theme Toggle
-document.getElementById('btn-theme').addEventListener('click', (e) => {
-    const htmlEl = document.documentElement;
-    const currentTheme = htmlEl.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    htmlEl.setAttribute('data-theme', newTheme);
-    
-    const icon = e.currentTarget.querySelector('i');
-    if (newTheme === 'light') {
-        icon.classList.remove('fa-sun');
-        icon.classList.add('fa-moon');
-    } else {
-        icon.classList.remove('fa-moon');
-        icon.classList.add('fa-sun');
-    }
-    runCode(); // Apply theme to preview
-});
 
-// Fullscreen Preview
-document.getElementById('btn-full').addEventListener('click', () => {
-    if (previewFrame.requestFullscreen) previewFrame.requestFullscreen();
-    else if (previewFrame.webkitRequestFullscreen) previewFrame.webkitRequestFullscreen();
-});
+const qs = selector =>
+  document.querySelector(selector);
 
-// --- Panel Minimize/Maximize Logic ---
-const editorLayout = document.getElementById('editor-layout');
-const panelStates = { html: true, css: true, js: true }; 
 
-document.querySelectorAll('.btn-minimize').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const target = btn.getAttribute('data-panel');
-        const panelEl = document.getElementById(`panel-${target}`);
-        
-        panelStates[target] = !panelStates[target];
-        panelEl.classList.toggle('minimized-panel');
-        btn.classList.toggle('rotated');
-        
-        const htmlRow = panelStates.html ? '1fr' : '34px';
-        const cssRow = panelStates.css ? '1fr' : '34px';
-        const jsRow = panelStates.js ? '1fr' : '34px';
-        
-        editorLayout.style.gridTemplateRows = `${htmlRow} ${cssRow} ${jsRow}`;
-    });
-});
+const qsa = selector =>
+  [...document.querySelectorAll(selector)];
 
-// --- Helper Function: Safely extract iframe visual content ---
-async function getPreviewImage() {
-    try {
-        // Attempt to access the iframe document
-        const iframeDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
-        
-        if (!iframeDoc || !iframeDoc.body) {
-            throw new Error("Browser blocked access to iframe document.");
-        }
 
-        const originalOverflow = iframeDoc.body.style.overflow;
-        iframeDoc.body.style.overflow = 'hidden'; // Hide scrollbars for the shot
-        
-        const canvas = await html2canvas(iframeDoc.body, {
-            backgroundColor: document.documentElement.getAttribute('data-theme') === 'dark' ? '#1e1e1e' : '#ffffff',
-            scale: 2,
-            useCORS: true // Attempts to load external images safely
-        });
-        
-        iframeDoc.body.style.overflow = originalOverflow; // Restore scrollbars
-        
-        // This line throws a DOMException if the canvas contains cross-origin images
-        return canvas.toDataURL('image/png'); 
-        
-    } catch (err) {
-        console.warn("Iframe capture blocked by browser security. Using fallback.", err);
-        
-        // Create a fallback image dynamically so the PDF doesn't crash
-        const fallbackCanvas = document.createElement('canvas');
-        fallbackCanvas.width = 800;
-        fallbackCanvas.height = 300;
-        const ctx = fallbackCanvas.getContext('2d');
-        
-        // Draw a warning box
-        ctx.fillStyle = '#252526';
-        ctx.fillRect(0, 0, fallbackCanvas.width, fallbackCanvas.height);
-        ctx.fillStyle = '#f85149';
-        ctx.font = '16px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('⚠️ Output capture blocked by mobile browser security.', 400, 140);
-        ctx.fillStyle = '#d4d4d4';
-        ctx.fillText('(Usually caused by external images in your HTML code)', 400, 170);
-        
-        return fallbackCanvas.toDataURL('image/png');
-    }
+/* =========================================================
+   ID
+   ========================================================= */
+
+function uid() {
+
+  return (
+    crypto.randomUUID
+      ? crypto.randomUUID()
+      : Date.now().toString(36) +
+        Math.random()
+          .toString(36)
+          .slice(2)
+  );
+
 }
 
-// --- macOS Screenshot Capture Logic ---
-document.getElementById('btn-screenshot').addEventListener('click', async () => {
-    const targetElement = document.getElementById('macos-preview');
-    const macBody = document.querySelector('.macos-body');
-    const btn = document.getElementById('btn-screenshot');
-    const originalBtnText = btn.innerHTML;
-    
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Capturing...';
 
-    try {
-        // 1. Get the image of the code output
-        const iframeImgSrc = await getPreviewImage();
-        
-        // 2. Temporarily swap the iframe with an image element
-        const img = document.createElement('img');
-        img.src = iframeImgSrc;
-        img.style.width = '100%';
-        img.style.height = '100%';
-        img.style.objectFit = 'cover';
-        
-        previewFrame.style.display = 'none';
-        macBody.appendChild(img);
+/* =========================================================
+   ACTIVE EXPERIMENT
+   ========================================================= */
 
-        // 3. Take a picture of the whole macOS window container
-        const canvas = await html2canvas(targetElement, { backgroundColor: null, scale: 2, useCORS: true });
-        
-        // 4. Trigger download
-        const downloadLink = document.createElement('a');
-        downloadLink.href = canvas.toDataURL('image/png');
-        downloadLink.download = 'mac-preview-shot.png';
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
+function activeExperiment() {
 
-        // 5. Clean up and restore the live preview
-        macBody.removeChild(img);
-        previewFrame.style.display = 'block';
+  return (
+    state.experiments.find(
+      e => e.id === state.activeId
+    ) ||
+    state.experiments[0]
+  );
 
-    } catch (err) {
-        console.error("Screenshot failed: ", err);
-        alert("Screenshot failed. Check console.");
-    } finally {
-        btn.innerHTML = originalBtnText;
+}
+
+
+/* =========================================================
+   ESCAPE HTML
+   ========================================================= */
+
+function escapeHtml(value = "") {
+
+  return String(value).replace(
+    /[&<>"']/g,
+
+    character => ({
+      "&":"&amp;",
+      "<":"&lt;",
+      ">":"&gt;",
+      '"':"&quot;",
+      "'":"&#039;"
+    }[character])
+  );
+
+}
+
+
+/* =========================================================
+   SAVE
+   ========================================================= */
+
+function saveState() {
+
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify(state)
+  );
+
+  $("saveStatus").textContent =
+    "● Saved";
+
+  $("saveStatus").style.color =
+    "var(--success)";
+}
+
+
+/* =========================================================
+   LOAD
+   ========================================================= */
+
+function loadState() {
+
+  try {
+
+    const saved =
+      JSON.parse(
+        localStorage.getItem(
+          STORAGE_KEY
+        )
+      );
+
+    if (
+      saved &&
+      saved.experiments &&
+      saved.experiments.length
+    ) {
+
+      state = {
+        ...state,
+        ...saved
+      };
+
     }
-});
 
-// --- Assignment PDF Generation Logic ---
-document.getElementById('btn-pdf').addEventListener('click', async () => {
-    const titleText = document.getElementById('exp-title').value || 'Experiment 01';
-    const objText = document.getElementById('exp-objective').value || 'To create a basic HTML document.';
-    
-    document.getElementById('pdf-render-title').textContent = titleText;
-    document.getElementById('pdf-render-obj').textContent = objText;
-    
-    let combinedCode = htmlCode.value;
-    if (cssCode.value.trim()) combinedCode += `\n<style>\n${cssCode.value}\n</style>`;
-    if (jsCode.value.trim()) combinedCode += `\n<script>\n${jsCode.value}\n<\/script>`;
-    document.getElementById('pdf-render-code').textContent = combinedCode;
+  } catch (error) {
 
-    const pdfBtn = document.getElementById('btn-pdf');
-    const originalText = pdfBtn.innerHTML;
-    pdfBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
-    
-    try {
-        const iframeImgSrc = await getPreviewImage();
-        document.getElementById('pdf-render-output-img').src = iframeImgSrc;
+    console.warn(
+      "Could not load saved project:",
+      error
+    );
 
-        const element = document.getElementById('pdf-export-wrapper');
-        const opt = {
-            margin:       [10, 10, 15, 10], 
-            filename:     'Assignment_Project.pdf',
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2 },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak:    { mode: 'avoid-all' }
+  }
+
+
+  state.activeId =
+    state.activeId ||
+    state.experiments[0].id;
+
+
+  document.body.classList.toggle(
+    "light",
+    state.theme === "light"
+  );
+
+}
+
+
+/* =========================================================
+   DEBOUNCE
+   ========================================================= */
+
+function debounce(fn, ms) {
+
+  let timer;
+
+  return (...args) => {
+
+    clearTimeout(timer);
+
+    timer =
+      setTimeout(
+        () => fn(...args),
+        ms
+      );
+
+  };
+
+}
+
+
+const autoSave =
+  debounce(
+    () => saveState(),
+    500
+  );
+
+
+/* =========================================================
+   EXPERIMENT LIST
+   ========================================================= */
+
+function renderExperimentList() {
+
+  const query =
+    $("experimentSearch")
+      .value
+      .toLowerCase()
+      .trim();
+
+
+  const list =
+    $("experimentList");
+
+
+  list.innerHTML = "";
+
+
+  state.experiments
+
+    .filter(
+      e =>
+        `${e.number} ${e.title}`
+          .toLowerCase()
+          .includes(query)
+    )
+
+    .forEach(e => {
+
+      const item =
+        document.createElement(
+          "div"
+        );
+
+
+      item.className =
+        "experiment-item" +
+        (
+          e.id === state.activeId
+            ? " active"
+            : ""
+        );
+
+
+      item.innerHTML = `
+
+        <div class="num">
+          EXP ${escapeHtml(
+            e.number || "--"
+          )}
+        </div>
+
+        <div class="name">
+          ${escapeHtml(
+            e.title ||
+            "Untitled experiment"
+          )}
+        </div>
+
+      `;
+
+
+      item.onclick = () => {
+
+        state.activeId = e.id;
+
+        renderAll();
+
+        closeMobileSidebar();
+
+      };
+
+
+      list.appendChild(item);
+
+    });
+
+
+  $("experimentCount").textContent =
+    `${state.experiments.length} experiment` +
+    (
+      state.experiments.length !== 1
+        ? "s"
+        : ""
+    );
+
+}
+
+
+/* =========================================================
+   FIELDS
+   ========================================================= */
+
+function renderFields() {
+
+  const e =
+    activeExperiment();
+
+
+  $("expNumber").value =
+    e.number || "";
+
+
+  $("expTitle").value =
+    e.title || "";
+
+
+  $("expObjective").value =
+    e.objective || "";
+
+
+  $("expResult").value =
+    e.result || "";
+
+
+  $("codeEditor").value =
+    e.code[state.language] || "";
+
+
+  $("languageLabel").textContent =
+    state.language === "js"
+      ? "JAVASCRIPT"
+      : state.language.toUpperCase();
+
+
+  updateLineNumbers();
+
+  updateCursorInfo();
+
+}
+
+
+/* =========================================================
+   RENDER ALL
+   ========================================================= */
+
+function renderAll() {
+
+  renderExperimentList();
+
+  renderFields();
+
+  renderPreview();
+
+}
+
+
+/* =========================================================
+   UPDATE EXPERIMENT FIELD
+   ========================================================= */
+
+function updateExperimentField(
+  key,
+  value
+) {
+
+  activeExperiment()[key] =
+    value;
+
+
+  $("saveStatus").textContent =
+    "● Unsaved";
+
+
+  $("saveStatus").style.color =
+    "#f59e0b";
+
+
+  autoSave();
+
+  renderExperimentList();
+
+}
+
+
+/* =========================================================
+   ADD EXPERIMENT
+   ========================================================= */
+
+function addExperiment() {
+
+  const next =
+    state.experiments.length + 1;
+
+
+  const number =
+    String(next).padStart(
+      2,
+      "0"
+    );
+
+
+  const experiment = {
+
+    id: uid(),
+
+    number,
+
+    title:
+      `Experiment ${number}`,
+
+    objective: "",
+
+    result: "",
+
+    code: {
+
+      html:
+        "<h1>New Experiment</h1>",
+
+      css: "",
+
+      js: ""
+
+    }
+
+  };
+
+
+  state.experiments.push(
+    experiment
+  );
+
+
+  state.activeId =
+    experiment.id;
+
+
+  saveState();
+
+  renderAll();
+
+}
+
+
+/* =========================================================
+   DUPLICATE
+   ========================================================= */
+
+function duplicateExperiment() {
+
+  const source =
+    activeExperiment();
+
+
+  const copy =
+    JSON.parse(
+      JSON.stringify(source)
+    );
+
+
+  copy.id =
+    uid();
+
+
+  copy.number =
+    String(
+      state.experiments.length + 1
+    ).padStart(2, "0");
+
+
+  copy.title =
+    (source.title || "Experiment") +
+    " (Copy)";
+
+
+  state.experiments.push(
+    copy
+  );
+
+
+  state.activeId =
+    copy.id;
+
+
+  saveState();
+
+  renderAll();
+
+}
+
+
+/* =========================================================
+   DELETE
+   ========================================================= */
+
+function deleteExperiment() {
+
+  if (
+    state.experiments.length === 1
+  ) {
+
+    alert(
+      "At least one experiment must remain."
+    );
+
+    return;
+
+  }
+
+
+  const experiment =
+    activeExperiment();
+
+
+  if (
+    !confirm(
+      `Delete Experiment ${experiment.number}?`
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  state.experiments =
+    state.experiments.filter(
+      e => e.id !== experiment.id
+    );
+
+
+  state.activeId =
+    state.experiments[0].id;
+
+
+  saveState();
+
+  renderAll();
+
+}
+
+
+/* =========================================================
+   LANGUAGE
+   ========================================================= */
+
+function switchLanguage(lang) {
+
+  state.language =
+    lang;
+
+
+  qsa(".tab")
+    .forEach(
+      tab =>
+        tab.classList.toggle(
+          "active",
+          tab.dataset.lang === lang
+        )
+    );
+
+
+  renderFields();
+
+}
+
+
+/* =========================================================
+   LINE NUMBERS
+   ========================================================= */
+
+function updateLineNumbers() {
+
+  const value =
+    $("codeEditor").value;
+
+
+  const lines =
+    value.split("\n").length;
+
+
+  $("lineNumbers").textContent =
+    Array.from(
+      {length: lines},
+      (_, index) =>
+        index + 1
+    ).join("\n");
+
+
+  $("lineNumbers").scrollTop =
+    $("codeEditor").scrollTop;
+
+}
+
+
+/* =========================================================
+   BUILD DOCUMENT
+   ========================================================= */
+
+function buildDocument(e) {
+
+  return `<!doctype html>
+
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1"
+>
+
+<style>
+
+${e.code.css || ""}
+
+</style>
+
+</head>
+
+<body>
+
+${e.code.html || ""}
+
+<script>
+
+window.addEventListener(
+  "error",
+  function(ev) {
+
+    parent.postMessage(
+      {
+        type:"console",
+        level:"error",
+        message:
+          ev.message +
+          " (line " +
+          ev.lineno +
+          ")"
+      },
+      "*"
+    );
+
+  }
+);
+
+
+const originalLog =
+  console.log;
+
+const originalWarn =
+  console.warn;
+
+const originalError =
+  console.error;
+
+
+function send(
+  level,
+  args
+) {
+
+  parent.postMessage(
+    {
+      type:"console",
+
+      level,
+
+      message:
+        args
+          .map(
+            value => {
+
+              try {
+
+                return typeof value === "object"
+                  ? JSON.stringify(value)
+                  : String(value);
+
+              } catch {
+
+                return String(value);
+
+              }
+
+            }
+          )
+          .join(" ")
+    },
+
+    "*"
+  );
+
+}
+
+
+console.log =
+  (...args) => {
+
+    send(
+      "log",
+      args
+    );
+
+    originalLog(...args);
+
+  };
+
+
+console.warn =
+  (...args) => {
+
+    send(
+      "warn",
+      args
+    );
+
+    originalWarn(...args);
+
+  };
+
+
+console.error =
+  (...args) => {
+
+    send(
+      "error",
+      args
+    );
+
+    originalError(...args);
+
+  };
+
+
+try {
+
+${e.code.js || ""}
+
+} catch(error) {
+
+  send(
+    "error",
+    [
+      error.stack ||
+      error.message
+    ]
+  );
+
+}
+
+<\/script>
+
+</body>
+
+</html>`;
+
+}
+
+
+/* =========================================================
+   CONSOLE
+   ========================================================= */
+
+function clearConsole() {
+
+  $("consoleOutput").innerHTML =
+    `<div class="console-line muted">
+      Console cleared.
+    </div>`;
+
+
+  $("consoleStatus").textContent =
+    "Ready";
+
+}
+
+
+/* =========================================================
+   ADD CONSOLE
+   ========================================================= */
+
+function addConsole(
+  level,
+  message
+) {
+
+  const line =
+    document.createElement(
+      "div"
+    );
+
+
+  line.className =
+    `console-line ${level}`;
+
+
+  line.textContent =
+    `[${level}] ${message}`;
+
+
+  $("consoleOutput")
+    .appendChild(line);
+
+
+  $("consoleOutput").scrollTop =
+    $("consoleOutput").scrollHeight;
+
+
+  $("consoleStatus").textContent =
+    level === "error"
+      ? "Runtime error"
+      : "Output received";
+
+}
+
+
+/* =========================================================
+   RUN
+   ========================================================= */
+
+function runCode() {
+
+  const e =
+    activeExperiment();
+
+
+  clearConsole();
+
+
+  addConsole(
+    "muted",
+    `Running Experiment ${e.number}...`
+  );
+
+
+  $("previewFrame").srcdoc =
+    buildDocument(e);
+
+
+  setTimeout(
+    () =>
+      addConsole(
+        "log",
+        "Preview rendered."
+      ),
+    250
+  );
+
+}
+
+
+/* =========================================================
+   PREVIEW
+   ========================================================= */
+
+function renderPreview() {
+
+  const e =
+    activeExperiment();
+
+
+  $("previewFrame").srcdoc =
+    buildDocument(e);
+
+
+  $("previewStage")
+    .classList.toggle(
+      "mobile-preview",
+      state.previewMode === "mobile"
+    );
+
+
+  $("previewDesktopBtn")
+    .classList.toggle(
+      "active",
+      state.previewMode === "desktop"
+    );
+
+
+  $("previewMobileBtn")
+    .classList.toggle(
+      "active",
+      state.previewMode === "mobile"
+    );
+
+}
+
+
+/* =========================================================
+   CODE UPDATE
+   ========================================================= */
+
+function updateCode(value) {
+
+  activeExperiment()
+    .code[state.language] =
+    value;
+
+
+  $("saveStatus").textContent =
+    "● Unsaved";
+
+
+  $("saveStatus").style.color =
+    "#f59e0b";
+
+
+  updateLineNumbers();
+
+  updateCursorInfo();
+
+  autoSave();
+
+  renderExperimentList();
+
+  debouncePreview();
+
+}
+
+
+const debouncePreview =
+  debounce(
+    renderPreview,
+    450
+  );
+
+
+/* =========================================================
+   DOWNLOAD HTML
+   ========================================================= */
+
+function downloadCurrentHTML() {
+
+  const e =
+    activeExperiment();
+
+
+  const blob =
+    new Blob(
+      [
+        buildDocument(e)
+      ],
+      {
+        type:"text/html"
+      }
+    );
+
+
+  const url =
+    URL.createObjectURL(
+      blob
+    );
+
+
+  const a =
+    document.createElement(
+      "a"
+    );
+
+
+  a.href = url;
+
+
+  a.download =
+    `experiment-${e.number || "01"}.html`;
+
+
+  document.body.appendChild(a);
+
+  a.click();
+
+  a.remove();
+
+
+  URL.revokeObjectURL(url);
+
+}
+
+
+/* =========================================================
+   COPY
+   ========================================================= */
+
+async function copyCurrentCode() {
+
+  try {
+
+    await navigator.clipboard
+      .writeText(
+        $("codeEditor").value
+      );
+
+
+    $("copyCodeBtn").textContent =
+      "Copied";
+
+
+    setTimeout(
+      () =>
+        $("copyCodeBtn").textContent =
+          "Copy",
+      1000
+    );
+
+
+  } catch {
+
+    alert(
+      "Clipboard access is unavailable. Select and copy the code manually."
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   FORMAT
+   ========================================================= */
+
+function formatCode() {
+
+  const area =
+    $("codeEditor");
+
+
+  let value =
+    area.value;
+
+
+  if (
+    state.language === "html"
+  ) {
+
+    value =
+      value
+        .replace(
+          />\s*</g,
+          ">\n<"
+        )
+        .replace(
+          /\n{3,}/g,
+          "\n\n"
+        );
+
+  }
+
+
+  else if (
+    state.language === "css"
+  ) {
+
+    value =
+      value
+        .replace(
+          /\s*{\s*/g,
+          " {\n  "
+        )
+        .replace(
+          /;\s*/g,
+          ";\n  "
+        )
+        .replace(
+          /\s*}\s*/g,
+          "\n}\n"
+        )
+        .replace(
+          /\n\s*\n/g,
+          "\n"
+        );
+
+  }
+
+
+  else {
+
+    value =
+      value
+        .replace(
+          /;\s*/g,
+          ";\n"
+        )
+        .replace(
+          /{\s*/g,
+          "{\n  "
+        )
+        .replace(
+          /}\s*/g,
+          "\n}\n"
+        );
+
+  }
+
+
+  area.value =
+    value.trim();
+
+
+  updateCode(
+    area.value
+  );
+
+}
+
+
+/* =========================================================
+   OUTPUT CAPTURE
+   ========================================================= */
+
+async function captureExperimentOutput(
+  e
+) {
+
+  return new Promise(
+    resolve => {
+
+      if (
+        typeof html2canvas ===
+        "undefined"
+      ) {
+
+        resolve(null);
+
+        return;
+
+      }
+
+
+      const iframe =
+        document.createElement(
+          "iframe"
+        );
+
+
+      iframe.setAttribute(
+        "sandbox",
+        "allow-scripts allow-forms allow-modals allow-popups allow-same-origin"
+      );
+
+
+      iframe.style.cssText =
+        `
+        position:fixed;
+        left:-10000px;
+        top:0;
+        width:850px;
+        height:520px;
+        border:0;
+        background:white;
+        visibility:hidden;
+        `;
+
+
+      document.body.appendChild(
+        iframe
+      );
+
+
+      let finished =
+        false;
+
+
+      const finish =
+        value => {
+
+          if (finished)
+            return;
+
+
+          finished =
+            true;
+
+
+          iframe.remove();
+
+
+          resolve(value);
+
         };
 
-        element.style.left = '0';
-        element.style.zIndex = '-1'; 
-        
-        await html2pdf().set(opt).from(element).save();
-        
-        element.style.left = '-9999px';
-        
-    } catch (err) {
-        console.error("PDF Generation failed: ", err);
-        alert("Failed to generate PDF. Check console for details.");
-    } finally {
-        pdfBtn.innerHTML = originalText;
+
+      iframe.onload =
+        () => {
+
+          setTimeout(
+            async () => {
+
+              try {
+
+                const doc =
+                  iframe.contentDocument;
+
+
+                if (
+                  !doc ||
+                  !doc.body
+                ) {
+
+                  return finish(
+                    null
+                  );
+
+                }
+
+
+                const canvas =
+                  await html2canvas(
+                    doc.body,
+                    {
+
+                      backgroundColor:
+                        "#ffffff",
+
+                      scale:
+                        Math.min(
+                          window.devicePixelRatio ||
+                            1,
+                          1.5
+                        ),
+
+                      useCORS:true,
+
+                      allowTaint:false,
+
+                      logging:false,
+
+                      windowWidth:850,
+
+                      windowHeight:520
+
+                    }
+                  );
+
+
+                finish(
+                  canvas.toDataURL(
+                    "image/png",
+                    0.92
+                  )
+                );
+
+
+              } catch(error) {
+
+                console.warn(
+                  "Output capture failed:",
+                  error
+                );
+
+
+                finish(null);
+
+              }
+
+            },
+            500
+          );
+
+        };
+
+
+      iframe.srcdoc =
+        buildDocument(e);
+
+
+      setTimeout(
+        () =>
+          finish(null),
+        8000
+      );
+
     }
-});
+  );
+
+}
+
+
+/* =========================================================
+   CHECK CODE EXISTS
+   ========================================================= */
+
+function hasCode(code) {
+
+  return (
+    typeof code === "string" &&
+    code.trim().length > 0
+  );
+
+}
+
+
+/* =========================================================
+   CODE WINDOW
+   ========================================================= */
+
+function codeWindow(
+  label,
+  code,
+  extraClass = ""
+) {
+
+  /*
+     Empty CSS / JavaScript
+     sections are NOT rendered.
+  */
+
+  if (
+    !hasCode(code)
+  ) {
+
+    return "";
+
+  }
+
+
+  return `
+
+    <div
+      class="code-window ${extraClass}"
+    >
+
+      <div
+        class="code-window-head"
+      >
+
+        <i class="code-dot"></i>
+
+        <i class="code-dot"></i>
+
+        <i class="code-dot"></i>
+
+        <span class="code-label">
+          ${label}
+        </span>
+
+      </div>
+
+
+      <pre
+        class="code-block"
+      >${escapeHtml(code)}</pre>
+
+    </div>
+
+  `;
+
+}
+
+
+/* =========================================================
+   SOURCE CODE SECTION
+   ========================================================= */
+
+function sourceCodeSection(e) {
+
+  const html =
+    codeWindow(
+      "HTML",
+      e.code?.html || "",
+      "html-code"
+    );
+
+
+  const css =
+    codeWindow(
+      "CSS",
+      e.code?.css || "",
+      "small-code"
+    );
+
+
+  const js =
+    codeWindow(
+      "JAVASCRIPT",
+      e.code?.js || "",
+      "small-code"
+    );
+
+
+  if (
+    !html &&
+    !css &&
+    !js
+  ) {
+
+    return `
+
+      <div class="output-fallback">
+
+        No source code has been entered.
+
+      </div>
+
+    `;
+
+  }
+
+
+  return `
+
+    <div class="source-code-grid">
+
+      ${html}
+
+      ${css}
+
+      ${js}
+
+    </div>
+
+  `;
+
+}
+
+
+/* =========================================================
+   REPORT PAGE
+   ========================================================= */
+
+function reportPage(
+  e,
+  capture
+) {
+
+  const html =
+    e.code?.html || "";
+
+
+  const css =
+    e.code?.css || "";
+
+
+  const js =
+    e.code?.js || "";
+
+
+  const codeLength =
+    html.length +
+    css.length +
+    js.length;
+
+
+  const compact =
+    codeLength > 2600
+      ? " compact"
+      : "";
+
+
+  const output =
+    capture
+
+      ? `
+
+        <img
+          class="output-image"
+          src="${capture}"
+          alt="Rendered experiment output"
+        >
+
+      `
+
+      : `
+
+        <div
+          class="output-fallback"
+        >
+
+          Output screenshot
+          could not be captured.
+
+          <br>
+
+          Run the experiment
+          in Live Preview and
+          try Export / PDF again.
+
+        </div>
+
+      `;
+
+
+  return `
+
+    <article
+      class="a4-page${compact}"
+    >
+
+
+      <!-- HEADER -->
+
+      <header
+        class="report-header"
+      >
+
+        <div
+          class="report-title"
+        >
+
+          Experiment
+          ${escapeHtml(
+            e.number || "--"
+          )}
+
+          :
+
+          ${escapeHtml(
+            e.title ||
+            "Untitled Experiment"
+          )}
+
+        </div>
+
+      </header>
+
+
+      <!-- OBJECTIVE -->
+
+      <section
+        class="report-section"
+      >
+
+        <h3>
+          1. OBJECTIVE
+        </h3>
+
+
+        <div
+          class="objective-text"
+        >
+
+          ${escapeHtml(
+            e.objective ||
+            "Objective not provided."
+          )}
+
+        </div>
+
+      </section>
+
+
+      <!-- SOURCE CODE -->
+
+      <section
+        class="report-section"
+      >
+
+        <h3>
+          2. SOURCE CODE
+        </h3>
+
+
+        ${sourceCodeSection(e)}
+
+      </section>
+
+
+      <!-- OUTPUT -->
+
+      <section
+        class="report-section"
+      >
+
+        <h3>
+          3. OUTPUT
+        </h3>
+
+
+        <div
+          class="output-box"
+        >
+
+          <div
+            class="output-head"
+          >
+
+            Rendered browser output
+
+          </div>
+
+
+          ${output}
+
+        </div>
+
+      </section>
+
+
+    </article>
+
+  `;
+
+}
+
+
+/* =========================================================
+   BUILD REPORT
+   ========================================================= */
+
+async function buildReport() {
+
+  $("reportPages").innerHTML = `
+
+    <div
+      class="a4-page report-loading"
+    >
+
+      Preparing report...
+
+      <br>
+
+      <small>
+        Capturing experiment outputs
+      </small>
+
+    </div>
+
+  `;
+
+
+  outputCaptures.clear();
+
+
+  const pages = [];
+
+
+  for (
+    const e
+    of state.experiments
+  ) {
+
+    const capture =
+      await captureExperimentOutput(
+        e
+      );
+
+
+    outputCaptures.set(
+      e.id,
+      capture
+    );
+
+
+    pages.push(
+      reportPage(
+        e,
+        capture
+      )
+    );
+
+  }
+
+
+  $("reportPages").innerHTML =
+    pages.join("");
+
+
+  createPrintReport();
+
+}
+
+
+/* =========================================================
+   OPEN REPORT
+   ========================================================= */
+
+function openReport() {
+
+  saveState();
+
+
+  $("reportModal")
+    .classList
+    .remove("hidden");
+
+
+  buildReport();
+
+}
+
+
+/* =========================================================
+   CLOSE REPORT
+   ========================================================= */
+
+function closeReport() {
+
+  $("reportModal")
+    .classList
+    .add("hidden");
+
+}
+
+
+/* =========================================================
+   PRINT REPORT
+   ========================================================= */
+
+function createPrintReport() {
+
+  const printArea =
+    $("reportPrintArea");
+
+
+  if (!printArea)
+    return;
+
+
+  printArea.innerHTML =
+    state.experiments
+      .map(e => {
+
+        const capture =
+          outputCaptures.get(
+            e.id
+          );
+
+
+        const output =
+          capture
+
+            ? `
+
+              <img
+                class="output-image"
+                src="${capture}"
+                alt="Rendered experiment output"
+              >
+
+            `
+
+            : `
+
+              <div
+                class="output-fallback"
+              >
+
+                Output screenshot unavailable.
+
+              </div>
+
+            `;
+
+
+        const html =
+          e.code?.html || "";
+
+
+        const css =
+          e.code?.css || "";
+
+
+        const js =
+          e.code?.js || "";
+
+
+        const codeLength =
+          html.length +
+          css.length +
+          js.length;
+
+
+        const compact =
+          codeLength > 2600
+            ? " compact"
+            : "";
+
+
+        return `
+
+          <article
+            class="print-report-page${compact}"
+          >
+
+
+            <header
+              class="report-header"
+            >
+
+              <div
+                class="report-title"
+              >
+
+                Experiment
+                ${escapeHtml(
+                  e.number || "--"
+                )}
+
+                :
+
+                ${escapeHtml(
+                  e.title ||
+                  "Untitled Experiment"
+                )}
+
+              </div>
+
+            </header>
+
+
+            <section
+              class="report-section"
+            >
+
+              <h3>
+                1. OBJECTIVE
+              </h3>
+
+
+              <div
+                class="objective-text"
+              >
+
+                ${escapeHtml(
+                  e.objective ||
+                  "Objective not provided."
+                )}
+
+              </div>
+
+            </section>
+
+
+            <section
+              class="report-section"
+            >
+
+              <h3>
+                2. SOURCE CODE
+              </h3>
+
+
+              ${sourceCodeSection(e)}
+
+            </section>
+
+
+            <section
+              class="report-section"
+            >
+
+              <h3>
+                3. OUTPUT
+              </h3>
+
+
+              <div
+                class="output-box"
+              >
+
+                <div
+                  class="output-head"
+                >
+
+                  Rendered browser output
+
+                </div>
+
+
+                ${output}
+
+              </div>
+
+            </section>
+
+
+          </article>
+
+        `;
+
+      })
+      .join("");
+
+
+}
+/* =========================================================
+   PRINT / SAVE PDF
+   ========================================================= */
+
+function printReport() {
+
+  createPrintReport();
+
+
+  setTimeout(
+    () => {
+
+      window.print();
+
+    },
+    150
+  );
+
+}
+
+
+/* =========================================================
+   THEME
+   ========================================================= */
+
+function toggleTheme() {
+
+  state.theme =
+    state.theme === "dark"
+      ? "light"
+      : "dark";
+
+
+  document.body.classList.toggle(
+    "light",
+    state.theme === "light"
+  );
+
+
+  $("themeBtn").textContent =
+    state.theme === "dark"
+      ? "☾"
+      : "☀";
+
+
+  saveState();
+
+}
+
+
+/* =========================================================
+   FULLSCREEN
+   ========================================================= */
+
+function fullscreenPreview() {
+
+  const frame =
+    $("previewFrame");
+
+
+  if (
+    frame.requestFullscreen
+  ) {
+
+    frame.requestFullscreen();
+
+  }
+
+}
+
+
+/* =========================================================
+   MOBILE NAV
+   ========================================================= */
+
+function mobileNav(action) {
+
+  qsa(".mobile-nav button")
+    .forEach(
+      button =>
+        button.classList.toggle(
+          "active",
+          button.dataset.mobile === action
+        )
+    );
+
+
+  if (
+    action === "files"
+  ) {
+
+    $("sidebar")
+      .classList
+      .add("open");
+
+  } else {
+
+    $("sidebar")
+      .classList
+      .remove("open");
+
+  }
+
+
+  const editor =
+    qs(".editor-panel");
+
+
+  const preview =
+    qs(".preview-panel");
+
+
+  const consolePanel =
+    qs(".console-panel");
+
+
+  if (
+    window.innerWidth <= 900
+  ) {
+
+    editor.style.display =
+      action === "code"
+        ? ""
+        : "none";
+
+
+    preview.style.display =
+      action === "preview"
+        ? ""
+        : "none";
+
+
+    consolePanel.style.display =
+      action === "console"
+        ? ""
+        : "none";
+
+
+    if (
+      action === "files"
+    ) {
+
+      editor.style.display =
+        "";
+
+      preview.style.display =
+        "none";
+
+      consolePanel.style.display =
+        "none";
+
+    }
+
+  }
+
+}
+/* =========================================================
+   CLOSE MOBILE SIDEBAR
+   ========================================================= */
+
+function closeMobileSidebar() {
+
+  $("sidebar")
+    .classList
+    .remove("open");
+
+}
+
+
+/* =========================================================
+   EXPORT PROJECT JSON
+   ========================================================= */
+
+function exportProject() {
+
+  saveState();
+
+
+  const payload = {
+
+    app:
+      "Index Editor V2",
+
+    version:
+      "Sprint 4",
+
+    exportedAt:
+      new Date().toISOString(),
+
+    experiments:
+      state.experiments
+
+  };
+
+
+  const blob =
+    new Blob(
+      [
+        JSON.stringify(
+          payload,
+          null,
+          2
+        )
+      ],
+      {
+        type:
+          "application/json"
+      }
+    );
+
+
+  const url =
+    URL.createObjectURL(
+      blob
+    );
+
+
+  const a =
+    document.createElement(
+      "a"
+    );
+
+
+  a.href = url;
+
+
+  a.download =
+    "index-editor-project.json";
+
+
+  document.body.appendChild(a);
+
+  a.click();
+
+  a.remove();
+
+
+  URL.revokeObjectURL(url);
+
+}
+
+/* =========================================================
+   IMPORT PROJECT
+   ========================================================= */
+
+function importProjectFile(
+  file
+) {
+
+  if (!file)
+    return;
+
+
+  const reader =
+    new FileReader();
+
+
+  reader.onload =
+    () => {
+
+      try {
+
+        const data =
+          JSON.parse(
+            reader.result
+          );
+
+
+        const experiments =
+          Array.isArray(data)
+            ? data
+            : data.experiments;
+
+
+        if (
+          !Array.isArray(
+            experiments
+          ) ||
+          !experiments.length
+        ) {
+
+          throw new Error(
+            "No experiments found"
+          );
+
+        }
+
+
+        const cleaned =
+          experiments.map(
+            (e, index) => ({
+
+              id:
+                e.id ||
+                uid(),
+
+              number:
+                String(
+                  e.number ??
+                  String(
+                    index + 1
+                  ).padStart(
+                    2,
+                    "0"
+                  )
+                ),
+
+              title:
+                String(
+                  e.title ??
+                  `Experiment ${
+                    index + 1
+                  }`
+                ),
+
+              objective:
+                String(
+                  e.objective ??
+                  ""
+                ),
+
+              result:
+                String(
+                  e.result ??
+                  ""
+                ),
+
+              code: {
+
+                html:
+                  String(
+                    e.code?.html ??
+                    ""
+                  ),
+
+                css:
+                  String(
+                    e.code?.css ??
+                    ""
+                  ),
+
+                js:
+                  String(
+                    e.code?.js ??
+                    ""
+                  )
+
+              }
+
+            })
+          );
+
+
+        state.experiments =
+          cleaned;
+
+
+        state.activeId =
+          cleaned[0].id;
+
+
+        saveState();
+
+        renderAll();
+
+
+        alert(
+          `Imported ${
+            cleaned.length
+          } experiment${
+            cleaned.length === 1
+              ? ""
+              : "s"
+          } successfully.`
+        );
+
+
+      } catch(error) {
+
+        alert(
+          "Invalid project JSON: " +
+          error.message
+        );
+
+      }
+
+    };
+
+
+  reader.readAsText(
+    file
+  );
+
+}
+/* =========================================================
+   CURSOR INFO
+   ========================================================= */
+
+function updateCursorInfo() {
+
+  const area =
+    $("codeEditor");
+
+
+  const position =
+    area.selectionStart;
+
+
+  const before =
+    area.value.slice(
+      0,
+      position
+    );
+
+
+  const line =
+    before.split("\n").length;
+
+
+  const lastBreak =
+    before.lastIndexOf("\n");
+
+
+  const column =
+    position -
+    lastBreak;
+
+
+  $("cursorInfo").textContent =
+    `Ln ${line}, Col ${column}`;
+
+}
+/* =========================================================
+   FIND BAR
+   ========================================================= */
+
+function openFindBar() {
+
+  $("findBar")
+    .classList
+    .remove("hidden");
+
+
+  $("findInput")
+    .focus();
+
+}
+
+
+/* =========================================================
+   CLOSE FIND
+   ========================================================= */
+
+function closeFindBar() {
+
+  $("findBar")
+    .classList
+    .add("hidden");
+
+}
+
+
+/* =========================================================
+   FIND TEXT
+   ========================================================= */
+
+function findText(
+  direction = 1
+) {
+
+  const area =
+    $("codeEditor");
+
+
+  const query =
+    $("findInput").value;
+
+
+  if (!query)
+    return;
+
+
+  const text =
+    area.value.toLowerCase();
+
+
+  const search =
+    query.toLowerCase();
+
+
+  let start =
+    direction > 0
+      ? area.selectionEnd
+      : area.selectionStart - 1;
+
+
+  let index =
+    direction > 0
+
+      ? text.indexOf(
+          search,
+          start
+        )
+
+      : text.lastIndexOf(
+          search,
+          start
+        );
+
+
+  if (
+    index === -1
+  ) {
+
+    index =
+      direction > 0
+
+        ? text.indexOf(
+            search
+          )
+
+        : text.lastIndexOf(
+            search
+          );
+
+  }
+
+
+  if (
+    index >= 0
+  ) {
+
+    area.focus();
+
+
+    area.setSelectionRange(
+      index,
+      index + query.length
+    );
+
+
+    updateCursorInfo();
+
+  }
+
+}
+
+
+/* =========================================================
+   KEYBOARD SHORTCUTS
+   ========================================================= */
+
+function handleEditorShortcuts(
+  event
+) {
+
+  const mod =
+    event.ctrlKey ||
+    event.metaKey;
+
+
+  if (
+    mod &&
+    event.key.toLowerCase() ===
+      "f"
+  ) {
+
+    event.preventDefault();
+
+    openFindBar();
+
+  }
+
+
+  if (
+    mod &&
+    event.key.toLowerCase() ===
+      "s"
+  ) {
+
+    event.preventDefault();
+
+    saveState();
+
+  }
+
+}
+/* =========================================================
+   BIND EVENTS
+   ========================================================= */
+
+function bindEvents() {
+
+  $("addExperimentBtn").onclick =
+    addExperiment;
+
+
+  $("duplicateBtn").onclick =
+    duplicateExperiment;
+
+
+  $("deleteBtn").onclick =
+    deleteExperiment;
+
+
+  $("saveBtn").onclick =
+    saveState;
+
+
+  $("exportBtn").onclick =
+    exportProject;
+
+
+  $("importBtn").onclick =
+    () =>
+      $("projectImport").click();
+
+
+  $("projectImport").onchange =
+    event => {
+
+      importProjectFile(
+        event.target.files[0]
+      );
+
+
+      event.target.value =
+        "";
+
+    };
+
+
+  $("downloadBtn").onclick =
+    downloadCurrentHTML;
+
+
+  $("pdfBtn").onclick =
+    openReport;
+
+
+  $("closeReportBtn").onclick =
+    closeReport;
+
+
+  $("refreshReportBtn").onclick =
+    buildReport;
+
+
+  $("printPdfBtn").onclick =
+    printReport;
+
+
+  $("themeBtn").onclick =
+    toggleTheme;
+
+
+  $("runBtn").onclick =
+    runCode;
+
+
+  $("refreshPreviewBtn").onclick =
+    renderPreview;
+
+
+  $("fullscreenBtn").onclick =
+    fullscreenPreview;
+
+
+  $("copyCodeBtn").onclick =
+    copyCurrentCode;
+
+
+  $("formatBtn").onclick =
+    formatCode;
+
+
+  $("findBtn").onclick =
+    openFindBar;
+
+
+  $("wrapBtn").onclick =
+    () =>
+      $("codeEditor")
+        .classList
+        .toggle(
+          "wrap-on"
+        );
+
+
+  $("closeFindBtn").onclick =
+    closeFindBar;
+
+
+  $("findNextBtn").onclick =
+    () =>
+      findText(1);
+
+
+  $("findPrevBtn").onclick =
+    () =>
+      findText(-1);
+
+
+  $("findInput").onkeydown =
+    event => {
+
+      if (
+        event.key ===
+        "Enter"
+      ) {
+
+        findText(
+          event.shiftKey
+            ? -1
+            : 1
+        );
+
+      }
+
+
+      if (
+        event.key ===
+        "Escape"
+      ) {
+
+        closeFindBar();
+
+      }
+
+    };
+
+
+  $("clearConsoleBtn").onclick =
+    clearConsole;
+
+
+  $("previewDesktopBtn").onclick =
+    () => {
+
+      state.previewMode =
+        "desktop";
+
+      renderPreview();
+
+    };
+
+
+  $("previewMobileBtn").onclick =
+    () => {
+
+      state.previewMode =
+        "mobile";
+
+      renderPreview();
+
+    };
+
+
+  $("experimentSearch").oninput =
+    renderExperimentList;
+
+
+  $("codeEditor").oninput =
+    event =>
+      updateCode(
+        event.target.value
+      );
+
+
+  $("codeEditor").onscroll =
+    updateLineNumbers;
+
+
+  $("codeEditor").onkeyup =
+    updateCursorInfo;
+
+
+  $("codeEditor").onclick =
+    updateCursorInfo;
+
+
+  $("codeEditor").onselect =
+    updateCursorInfo;
+
+
+  $("codeEditor")
+    .addEventListener(
+      "keydown",
+      handleEditorShortcuts
+    );
+
+
+  $("codeEditor").onkeydown =
+    event => {
+
+      if (
+        event.key ===
+        "Tab"
+      ) {
+
+        event.preventDefault();
+
+
+        const start =
+          event.target.selectionStart;
+
+
+        const end =
+          event.target.selectionEnd;
+
+
+        event.target.setRangeText(
+          "  ",
+          start,
+          end,
+          "end"
+        );
+
+
+        updateCode(
+          event.target.value
+        );
+
+      }
+
+
+      if (
+        (
+          event.ctrlKey ||
+          event.metaKey
+        ) &&
+        event.key ===
+          "Enter"
+      ) {
+
+        event.preventDefault();
+
+        runCode();
+
+      }
+
+    };
+
+
+  $("expNumber").oninput =
+    event =>
+      updateExperimentField(
+        "number",
+        event.target.value
+      );
+
+
+  $("expTitle").oninput =
+    event =>
+      updateExperimentField(
+        "title",
+        event.target.value
+      );
+
+
+  $("expObjective").oninput =
+    event =>
+      updateExperimentField(
+        "objective",
+        event.target.value
+      );
+
+
+  $("expResult").oninput =
+    event =>
+      updateExperimentField(
+        "result",
+        event.target.value
+      );
+
+
+  qsa(".tab")
+    .forEach(
+      tab => {
+
+        tab.onclick =
+          () =>
+            switchLanguage(
+              tab.dataset.lang
+            );
+
+      }
+    );
+
+
+  qsa(".mobile-nav button")
+    .forEach(
+      button => {
+
+        button.onclick =
+          () =>
+            mobileNav(
+              button.dataset.mobile
+            );
+
+      }
+    );
+
+
+  window.addEventListener(
+    "message",
+    event => {
+
+      if (
+        event.data?.type ===
+        "console"
+      ) {
+
+        addConsole(
+          event.data.level ||
+            "log",
+
+          event.data.message ||
+            ""
+        );
+
+      }
+
+    }
+  );
+
+
+  window.addEventListener(
+    "resize",
+    () => {
+
+      if (
+        window.innerWidth >
+        900
+      ) {
+
+        qsa(
+          ".editor-panel,.preview-panel,.console-panel"
+        )
+        .forEach(
+          element =>
+            element.style.display =
+              ""
+        );
+
+      }
+
+    }
+  );
+
+}
+/* =========================================================
+   START APPLICATION
+   ========================================================= */
+
+loadState();
+
+bindEvents();
+
+renderAll();
+
+
+$("themeBtn").textContent =
+  state.theme === "dark"
+    ? "☾"
+    : "☀";
